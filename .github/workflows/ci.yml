@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Descargar el repositorio
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Comprobar sintaxis de PowerShell
         shell: powershell
