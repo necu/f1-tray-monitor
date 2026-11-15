@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validar scripts y datos
+    runs-on: windows-latest
+
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Comprobar sintaxis de PowerShell
+        shell: powershell
+        run: |
+          $files = @(
+            'monitor.ps1',
+            'f1_scraper.ps1',
+            'install-autostart.ps1',
+            'uninstall-autostart.ps1',
+            'check_monitor.ps1',
+            'check_sources.ps1',
+            'package.ps1',
+            'tools/add-source.ps1',
+            'tools/publicar.ps1',
+            'tools/stream-part.ps1'
+          )
+          $failed = $false
+          foreach ($f in $files) {
+            $errs = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $f), [ref]$null, [ref]$errs)
+            if ($errs) {
+              $errs | ForEach-Object {
+                Write-Host "::error file=$f,line=$($_.Extent.StartLineNumber)::$($_.Message)"
+              }
+              $failed = $true
+            }
+            else {
+              Write-Host "Sintaxis OK: $f"
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Validar archivos JSON
+        shell: powershell
+        run: |
+          $files = @(
+            'config.json',
+            'opera-extension/manifest.json',
+            'opera-extension/rules.json',
+            'sources.json',
+            'sources.example.json',
+            'sources.schema.json'
+          )
+          foreach ($f in $files) {
+            try {
+              Get-Content $f -Raw -Encoding UTF8 | ConvertFrom-Json | Out-Null
+              Write-Host "JSON OK: $f"
+            }
+            catch {
+              Write-Host "::error file=$f::$($_.Exception.Message)"
+              exit 1
+            }
+          }
+
+      - name: Validar catalogo de fuentes
+        shell: powershell
+        run: .\check_sources.ps1
+
+      - name: Validar paquete reproducible
+        shell: powershell
+        run: |
+          if (-not (Test-Path .\package.ps1)) { throw 'Falta package.ps1' }
+          .\package.ps1 -Verify
+
+      - name: Instalar PSScriptAnalyzer
+        shell: powershell
+        run: Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -Repository PSGallery
+
+      - name: Analizar scripts
+        shell: powershell
+        run: |
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
+          if ($results) {
+            $results | Format-Table -AutoSize | Out-String | Write-Host
+            $results | ForEach-Object {
+              Write-Host "::error file=$($_.ScriptName),line=$($_.Line)::$($_.Message)"
+            }
+            exit 1
+          }
+          Write-Host 'PSScriptAnalyzer: sin avisos'

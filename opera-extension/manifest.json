@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "F1 Player Cleaner",
+  "short_name": "F1 Cleaner",
+  "version": "1.0.0",
+  "description": "Bloqueo estricto de popups, popunders y anuncios para el reproductor de F1 Tray Monitor.",
+  "author": "F1 Tray Monitor contributors",
+  "homepage_url": "https://github.com/necu/f1-tray-monitor",
+  "minimum_chrome_version": "111",
+  "permissions": [
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ads",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["cleaner.js"],
+      "css": ["cleaner.css"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true,
+      "world": "MAIN"
+    }
+  ]
+}

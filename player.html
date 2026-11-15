@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="dark">
+<title>F1 - Reproductor</title>
+<style>
+  @property --deck-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+
+  :root {
+    --f1-red: #e10600;
+    --f1-red-hot: #ff2d1a;
+    --ink: #f5f5f7;
+    --muted: #9a9aa8;
+    --glass: rgba(10, 10, 14, .72);
+    /* Neon del equipo activo. El anfitrion llama a F1Player.setNeon().
+       a/b son los dos colores del equipo; el resto de la paleta se deriva
+       de ellos para que toda la interfaz cambie de forma coherente. */
+    --neon-a: 225, 6, 0;
+    --neon-b: 255, 214, 0;
+    --neon-text: 255, 150, 140;
+    --neon-dark: 36, 8, 10;
+    --neon-panel: 28, 12, 14;
+    --neon-a-dark: 140, 4, 0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* Contenido solo para lectores de pantalla (avisos aria-live). */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+  }
+
+  #player {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+    background: #000;
+    z-index: 1;
+  }
+
+  /* ---------------------------------------------------------------------
+     Zona sensible: una linea de luz en el borde superior. Al acercar el
+     raton, esa linea se convierte en el panel de control.
+     --------------------------------------------------------------------- */
+  #edge {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    z-index: 30;
+    background: linear-gradient(180deg, rgba(var(--neon-a), .22), transparent 70%);
+    opacity: 0;
+    transition: opacity .4s ease;
+    pointer-events: none;
+  }
+  #edge::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: min(560px, 60vw);
+    height: 2px;
+    transform: translateX(-50%);
+    background: linear-gradient(90deg, transparent, rgba(var(--neon-b), .55), transparent);
+    filter: blur(.4px);
+  }
+  #edge.on { opacity: 1; }
+
+  /* ---------------------------------------------------------------------
+     Panel de control (deck)
+     --------------------------------------------------------------------- */
+  #deck {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    z-index: 40;
+    width: min(1180px, calc(100vw - 40px));
+    padding: 1px;
+    border-radius: 20px;
+    background: conic-gradient(from var(--deck-angle),
+      rgba(var(--neon-a), .95),
+      rgba(var(--neon-b), .30) 18%,
+      rgba(var(--neon-a), .18) 38%,
+      rgba(var(--neon-b), .62) 55%,
+      rgba(var(--neon-a), .95) 78%,
+      rgba(var(--neon-b), .30));
+    box-shadow:
+      0 24px 70px rgba(0, 0, 0, .62),
+      0 0 0 1px rgba(255, 255, 255, .05) inset,
+      0 0 60px rgba(var(--neon-a), .22);
+    transform: translate(-50%, -140%) scale(.96);
+    opacity: 0;
+    filter: blur(8px);
+    pointer-events: none;
+    transition:
+      transform .52s cubic-bezier(.16, 1, .3, 1),
+      opacity .32s ease,
+      filter .4s ease;
+    animation: deck-spin 9s linear infinite;
+  }
+  @keyframes deck-spin { to { --deck-angle: 360deg; } }
+
+  #deck.on {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+    filter: blur(0);
+    pointer-events: auto;
+  }
+
+  .deck-inner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 66px;
+    padding: 12px 16px 12px 18px;
+    border-radius: 19px;
+    background:
+      radial-gradient(1200px 120px at 10% 0%, rgba(var(--neon-a), .22), transparent 60%),
+      radial-gradient(900px 220px at 95% 120%, rgba(var(--neon-b), .10), transparent 65%),
+      linear-gradient(180deg, rgb(var(--neon-panel)), rgb(var(--neon-dark)));
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    overflow: visible;
+  }
+  .deck-inner::after {
+    content: "";
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(var(--neon-a), .75), transparent);
+    animation: scan 3.4s ease-in-out infinite;
+  }
+  @keyframes scan {
+    0%, 100% { transform: translateX(-18%); opacity: .25; }
+    50% { transform: translateX(18%); opacity: .9; }
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+  }
+  .brand-mark {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgb(var(--neon-a)), rgb(var(--neon-a-dark)));
+    box-shadow: 0 8px 24px rgba(var(--neon-a), .45), inset 0 1px 0 rgba(255, 255, 255, .35);
+    font-weight: 900;
+    font-size: 17px;
+    letter-spacing: -.06em;
+    font-style: italic;
+  }
+  .brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+  .brand-text b {
+    font-size: 13px;
+    letter-spacing: .22em;
+    font-weight: 700;
+  }
+  .brand-text span {
+    font-size: 9px;
+    letter-spacing: .3em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .divider {
+    width: 1px;
+    height: 34px;
+    background: linear-gradient(180deg, transparent, rgba(255, 255, 255, .22), transparent);
+    flex: 0 0 auto;
+  }
+
+  .meta {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .meta-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .live {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .18em;
+    color: rgb(var(--neon-text));
+    text-transform: uppercase;
+    flex: 0 0 auto;
+  }
+  .live i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgb(var(--neon-a));
+    box-shadow: 0 0 0 0 rgba(var(--neon-a), .7);
+    animation: pulse 1.8s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(var(--neon-a), .65); }
+    70% { box-shadow: 0 0 0 9px rgba(var(--neon-a), 0); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--neon-a), 0); }
+  }
+
+  .chip {
+    display: inline-block;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: #fff;
+    background: rgba(var(--neon-a), .16);
+    border: 1px solid rgba(var(--neon-a), .32);
+    flex: 0 1 auto;
+  }
+  .chip.type {
+    border-color: transparent;
+    color: #0a0a0e;
+    background: var(--type-color, #e10600);
+  }
+
+  #title {
+    font-size: 14.5px;
+    font-weight: 650;
+    letter-spacing: .01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #fff;
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+  .icon-btn {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    border: 1px solid rgba(var(--neon-a), .20);
+    background: rgba(var(--neon-a), .08);
+    color: #e8e8ee;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background .18s ease, border-color .18s ease, transform .18s ease, color .18s ease;
+  }
+  .icon-btn:hover {
+    background: rgba(var(--neon-a), .22);
+    border-color: rgba(var(--neon-a), .55);
+    color: #fff;
+    transform: translateY(-1px);
+  }
+  .icon-btn:active { transform: translateY(0) scale(.96); }
+  .icon-btn:focus-visible {
+    outline: 2px solid rgb(var(--neon-a));
+    outline-offset: 2px;
+  }
+  .icon-btn.active {
+    background: rgba(var(--neon-a), .26);
+    border-color: rgba(var(--neon-a), .70);
+    color: #fff;
+  }
+  .icon-btn svg { width: 18px; height: 18px; }
+
+  .icon-btn::after {
+    content: attr(data-tip) "\A" attr(data-desc);
+    position: absolute;
+    top: calc(100% + 12px);
+    left: 50%;
+    transform: translate(-50%, 4px);
+    width: max-content;
+    max-width: 250px;
+    padding: 8px 11px;
+    border-radius: 10px;
+    background: rgb(var(--neon-dark));
+    border: 1px solid rgba(var(--neon-a), .38);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, .55), 0 0 24px rgba(var(--neon-a), .18);
+    color: #e8e8f0;
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1.35;
+    white-space: pre-line;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .16s ease, transform .16s ease;
+    z-index: 60;
+  }
+  .icon-btn:hover::after,
+  .icon-btn:focus-visible::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  /* Los últimos iconos quedan pegados al borde derecho: alinear su globo. */
+  .actions .icon-btn:nth-last-child(-n+4)::after {
+    left: auto;
+    right: 0;
+    transform: translate(0, 4px);
+  }
+  .actions .icon-btn:nth-last-child(-n+4):hover::after,
+  .actions .icon-btn:nth-last-child(-n+4):focus-visible::after {
+    transform: translate(0, 0);
+  }
+
+  /* Globo de ayuda que aparece una vez al abrir el panel del reproductor. */
+  .deck-hint {
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 14px);
+    transform: translate(-50%, -6px);
+    padding: 8px 15px;
+    border-radius: 999px;
+    background: rgba(var(--neon-a), .16);
+    border: 1px solid rgba(var(--neon-a), .48);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .45);
+    color: rgb(var(--neon-text));
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+    z-index: 55;
+  }
+  .deck-hint.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  /* ---------------------------------------------------------------------
+     Selector de fuentes y controles del anfitrion (modo incrustado)
+     --------------------------------------------------------------------- */
+  [hidden] { display: none !important; }
+
+  .source-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  /* Botón que resume la fuente activa: punto del servicio + nombre + calidad. */
+  #sourceBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 234px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(var(--neon-a), .28);
+    background: linear-gradient(180deg, rgba(var(--neon-a), .14), rgba(var(--neon-a), .04));
+    color: #eeeef6;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+  }
+  #sourceBtn:hover,
+  #sourceBtn[aria-expanded="true"] {
+    border-color: rgba(var(--neon-a), .68);
+    box-shadow: 0 0 18px rgba(var(--neon-a), .20);
+  }
+  #sourceBtn:focus-visible { outline: 2px solid rgb(var(--neon-a)); outline-offset: 2px; }
+  #sourceBtn .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 99px;
+    flex: 0 0 auto;
+    background: var(--svc, rgb(var(--neon-a)));
+    box-shadow: 0 0 9px var(--svc, rgb(var(--neon-a)));
+  }
+  #sourceBtn .lbl {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 650;
+  }
+  #sourceBtn .qn {
+    flex: 0 0 auto;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    color: rgba(255, 255, 255, .62);
+  }
+  #sourceBtn .caret {
+    flex: 0 0 auto;
+    font-size: 8px;
+    color: rgba(255, 255, 255, .7);
+    transition: transform .16s ease;
+  }
+  #sourceBtn[aria-expanded="true"] .caret { transform: rotate(180deg); }
+
+  /* Panel del selector: agrupado por servicio, con badges de calidad e idioma. */
+  #sourcePanel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 10px);
+    width: 348px;
+    max-height: min(58vh, 440px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 7px;
+    border-radius: 14px;
+    background: rgba(10, 10, 15, .97);
+    border: 1px solid rgba(var(--neon-a), .38);
+    box-shadow: 0 24px 54px rgba(0, 0, 0, .68), 0 0 30px rgba(var(--neon-a), .16);
+    z-index: 70;
+    animation: panelIn .16s ease;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(var(--neon-a), .4) transparent;
+  }
+  @keyframes panelIn {
+    from { opacity: 0; transform: translateY(-6px) scale(.985); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .sp-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px 8px;
+  }
+  .sp-head b {
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: .14em;
+    color: #9a9aab;
+  }
+  .sp-head span { font-size: 9px; color: #6f6f82; }
+
+  .sp-group { padding: 2px 0 4px; }
+  .sp-group + .sp-group {
+    margin-top: 3px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, .06);
+  }
+  .sp-service {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px 5px;
+    font-size: 8.8px;
+    font-weight: 800;
+    letter-spacing: .10em;
+    text-transform: uppercase;
+    color: #9a9aab;
+  }
+  .sp-service i {
+    width: 6px;
+    height: 6px;
+    border-radius: 99px;
+    background: var(--svc);
+    box-shadow: 0 0 8px var(--svc);
+  }
+  .sp-service em {
+    margin-left: auto;
+    font-style: normal;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: #6f6f82;
+  }
+
+  .sp-opt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 8px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #e6e6ef;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .sp-opt:hover,
+  .sp-opt:focus-visible {
+    background: rgba(var(--neon-a), .13);
+    outline: none;
+  }
+  .sp-opt.active {
+    background: linear-gradient(90deg, rgba(var(--neon-a), .26), rgba(var(--neon-a), .06));
+    box-shadow: inset 2px 0 0 rgb(var(--neon-a));
+  }
+  .sp-opt .star {
+    width: 11px;
+    flex: 0 0 auto;
+    text-align: center;
+    font-size: 9px;
+    color: rgb(var(--neon-a));
+  }
+  .sp-opt .name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10.8px;
+  }
+  .sp-opt.active .name { font-weight: 700; }
+  .sp-opt .badges { display: flex; gap: 4px; flex: 0 0 auto; }
+  .sp-badge {
+    padding: 2px 5px;
+    border-radius: 5px;
+    font-size: 8.4px;
+    font-weight: 800;
+    letter-spacing: .03em;
+    background: rgba(255, 255, 255, .08);
+    color: #cfcfda;
+  }
+  .sp-badge.q {
+    background: rgba(var(--neon-a), .18);
+    color: rgb(var(--neon-text));
+  }
+  .sp-badge.cat {
+    background: rgba(255, 255, 255, .06);
+    color: #9a9aab;
+  }
+  .sp-empty {
+    padding: 18px 10px;
+    text-align: center;
+    font-size: 10.5px;
+    color: #8b8b96;
+  }
+
+  .host-only { display: none; }
+  body.embedded .host-only { display: grid; }
+  .vo-only { display: none !important; }
+  body.video-only .vo-only { display: grid !important; }
+  .icon-btn.danger:hover {
+    background: rgba(196, 43, 28, .9);
+    border-color: transparent;
+    color: #fff;
+  }
+
+  body.embedded #fs { display: none; }
+  body.embedded #deck { top: 8px; width: calc(100vw - 16px); }
+  body.embedded .deck-inner {
+    min-height: 52px;
+    padding: 8px 10px;
+    gap: 10px;
+    border-radius: 16px;
+  }
+  body.embedded .brand,
+  body.embedded .divider,
+  body.embedded .live { display: none; }
+  body.embedded .meta { gap: 2px; }
+  body.embedded #title { font-size: 12.5px; }
+  body.embedded .icon-btn { width: 34px; height: 34px; border-radius: 10px; }
+  body.embedded .icon-btn svg { width: 16px; height: 16px; }
+  body.embedded .chip { font-size: 9px; max-width: 150px; }
+  body.embedded .chip.type { flex: 0 0 auto; }
+  body.embedded #option { flex: 0 1 auto; min-width: 0; }
+  body.embedded .source-wrap { max-width: 214px; }
+  body.embedded #sourceBtn { max-width: 204px; height: 32px; font-size: 10.5px; }
+  body.embedded #sourcePanel { width: 320px; }
+  body.embedded #sourceBtn .qn { display: none; }
+  /* Si hay selector de fuentes, la opcion ya se lee en el desplegable. */
+  body.embedded:has(#sourceWrap:not([hidden])) #option { display: none; }
+
+  /* ---------------------------------------------------------------------
+     Cargador
+     --------------------------------------------------------------------- */
+  #loader {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: radial-gradient(600px 300px at 50% 45%, rgb(var(--neon-panel)), #000 70%);
+    transition: opacity .6s ease, visibility .6s ease;
+  }
+  #loader.done { opacity: 0; visibility: hidden; }
+
+  .loader-mark {
+    font-size: 44px;
+    font-weight: 900;
+    font-style: italic;
+    letter-spacing: -.07em;
+    color: #fff;
+    text-shadow: 0 0 42px rgba(var(--neon-a), .55);
+  }
+  .loader-track {
+    width: 220px;
+    height: 3px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, .1);
+    overflow: hidden;
+  }
+  .loader-track i {
+    display: block;
+    width: 40%;
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, rgb(var(--neon-a)), rgb(var(--neon-text)));
+    animation: loader-run 1.25s ease-in-out infinite;
+  }
+  @keyframes loader-run {
+    0% { transform: translateX(-110%); }
+    100% { transform: translateX(290%); }
+  }
+  #loader p {
+    font-size: 10px;
+    letter-spacing: .28em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ---------------------------------------------------------------------
+     Estado vacio
+     --------------------------------------------------------------------- */
+  #empty {
+    position: fixed;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #8b8b96;
+    text-align: center;
+    padding: 24px;
+    z-index: 50;
+    background: #05050a;
+  }
+  #empty h3 { color: #fff; font-size: 18px; }
+  #empty code { color: #e5e5ea; background: rgba(var(--neon-a), .16); padding: 2px 6px; border-radius: 4px; }
+
+  @media (max-width: 720px) {
+    .brand-text, .divider { display: none; }
+    #title { font-size: 12.5px; }
+    .icon-btn { width: 36px; height: 36px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #deck, #deck.on, .deck-inner::after, .live i, .loader-track i { animation: none !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+  <iframe id="player" allowfullscreen
+          allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+          referrerpolicy="no-referrer"></iframe>
+
+  <div id="edge"></div>
+
+  <div id="deck" role="region" aria-label="Controles del reproductor">
+    <div class="deck-inner">
+      <div class="brand">
+        <span class="brand-mark">F1</span>
+        <span class="brand-text">
+          <b>TRAY MONITOR</b>
+          <span>player</span>
+        </span>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="meta">
+        <div class="meta-top">
+          <span class="live"><i></i> Reproduciendo</span>
+          <span id="type" class="chip type" hidden></span>
+          <span id="option" class="chip" aria-live="polite" aria-atomic="true">Reproductor</span>
+        </div>
+        <div id="title">Cargando...</div>
+      </div>
+
+      <div class="actions">
+        <div id="sourceWrap" class="source-wrap" hidden>
+          <button id="sourceBtn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="sourcePanel" aria-label="Elegir fuente de vídeo">
+            <span class="dot"></span>
+            <span class="lbl">Fuente</span>
+            <span class="qn"></span>
+            <span class="caret" aria-hidden="true">▼</span>
+          </button>
+          <div id="sourcePanel" role="listbox" aria-label="Fuentes de vídeo" hidden>
+            <div class="sp-head"><b>FUENTES</b><span id="sourceCount"></span></div>
+            <div id="sourceList"></div>
+          </div>
+        </div>
+
+        <button id="reload" class="icon-btn" type="button" data-tip="Recargar (R)" data-desc="Vuelve a cargar el reproductor si el vídeo se queda en negro o bloqueado." aria-label="Recargar reproductor">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+            <path d="M21 3v6h-6"></path>
+          </svg>
+        </button>
+
+        <a id="source" class="icon-btn" href="#" target="_blank" rel="noopener noreferrer"
+           data-f1-allow data-tip="Abrir en el navegador" data-desc="Abre este mismo vídeo en tu navegador habitual." aria-label="Abrir la fuente en el navegador">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 3h7v7"></path>
+            <path d="M10 14 21 3"></path>
+            <path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"></path>
+          </svg>
+        </a>
+
+        <button id="fs" class="icon-btn" type="button" data-tip="Pantalla completa (F)" data-desc="Amplía el vídeo a pantalla completa. Atajo: F." aria-label="Pantalla completa">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
+            <path d="M16 3h3a2 2 0 0 1 2 2v3"></path>
+            <path d="M8 21H5a2 2 0 0 1-2-2v-3"></path>
+            <path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
+          </svg>
+        </button>
+
+        <button id="layer" class="icon-btn host-only" type="button" data-tip="Capa: normal" data-desc="Alterna entre ventana normal, siempre encima y fondo de escritorio. Atajo: L." aria-label="Cambiar capa de la ventana">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3 3 8l9 5 9-5-9-5Z"></path>
+            <path d="m3 12 9 5 9-5"></path>
+            <path d="m3 16 9 5 9-5"></path>
+          </svg>
+        </button>
+
+        <button id="drag" class="icon-btn host-only vo-only" type="button" data-tip="Arrastrar ventana" data-desc="Mantén pulsado y arrastra para mover la ventana del reproductor." aria-label="Arrastrar ventana">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <circle cx="9" cy="6" r="1.6"></circle><circle cx="15" cy="6" r="1.6"></circle>
+            <circle cx="9" cy="12" r="1.6"></circle><circle cx="15" cy="12" r="1.6"></circle>
+            <circle cx="9" cy="18" r="1.6"></circle><circle cx="15" cy="18" r="1.6"></circle>
+          </svg>
+        </button>
+
+        <button id="showList" class="icon-btn host-only vo-only" type="button" data-tip="Mostrar listado" data-desc="Vuelve a la lista de entradas sin cerrar el vídeo." aria-label="Mostrar listado de entradas">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+            <path d="M8 4v16"></path>
+          </svg>
+        </button>
+
+        <button id="min" class="icon-btn host-only vo-only" type="button" data-tip="Minimizar" data-desc="Minimiza la ventana al icono de la bandeja." aria-label="Minimizar ventana">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M5 12h14"></path>
+          </svg>
+        </button>
+
+        <button id="max" class="icon-btn host-only vo-only" type="button" data-tip="Maximizar / restaurar" data-desc="Maximiza o restaura el tamaño de la ventana." aria-label="Maximizar o restaurar ventana">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <rect x="5" y="5" width="14" height="14" rx="1"></rect>
+          </svg>
+        </button>
+
+        <button id="close" class="icon-btn host-only vo-only danger" type="button" data-tip="Cerrar" data-desc="Oculta la ventana; el monitor sigue activo en la bandeja." aria-label="Cerrar ventana">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M6 6l12 12"></path><path d="M18 6 6 18"></path>
+          </svg>
+        </button>
+      </div>
+      <div id="deckHint" class="deck-hint">Pasa el ratón por los iconos para ver qué hace cada uno.</div>
+    </div>
+  </div>
+
+  <div id="loader">
+    <div class="loader-mark">F1</div>
+    <div class="loader-track"><i></i></div>
+    <p>Cargando reproductor</p>
+  </div>
+
+  <div id="empty">
+    <h3>Sin vídeo seleccionado</h3>
+    <p>Elige una opción del listado para empezar a reproducir.</p>
+  </div>
+
+  <div id="a11yStatus" class="sr-only" role="status" aria-live="polite"></div>
+
+<script>
+  // El monitor inyecta window.__F1 (modo externo) o llama a F1Player.load()
+  // desde WebView2 (modo incrustado). Ambos caminos comparten este código.
+  const boot = window.__F1 || {};
+  const params = new URLSearchParams(location.search);
+
+  const frame = document.getElementById('player');
+  const deck = document.getElementById('deck');
+  const edge = document.getElementById('edge');
+  const loader = document.getElementById('loader');
+  const sourceLink = document.getElementById('source');
+  const emptyBox = document.getElementById('empty');
+  const sourceWrap = document.getElementById('sourceWrap');
+  const sourceBtn = document.getElementById('sourceBtn');
+  const sourcePanel = document.getElementById('sourcePanel');
+  const sourceList = document.getElementById('sourceList');
+  const sourceCount = document.getElementById('sourceCount');
+  const sourceLabel = sourceBtn.querySelector('.lbl');
+  const sourceDot = sourceBtn.querySelector('.dot');
+  const sourceQn = sourceBtn.querySelector('.qn');
+  const typeChip = document.getElementById('type');
+  const optionChip = document.getElementById('option');
+  const titleEl = document.getElementById('title');
+
+  const host = (window.chrome && window.chrome.webview) ? window.chrome.webview : null;
+  const embedded = !!host;
+  if (embedded) { document.body.classList.add('embedded'); }
+
+  const TYPE_COLORS = {
+    'Carrera': '#e10600',
+    'Clasificación': '#a855f7',
+    'Clasificacion': '#a855f7',
+    'Sprint': '#f59e0b',
+    'Sprint Shootout': '#f59e0b',
+    'Libres 1': '#38bdf8',
+    'Libres 2': '#0ea5e9',
+    'Libres 3': '#06b6d4'
+  };
+
+  // Colores caracteristicos de equipos memorables de Formula 1.
+  // a = color principal del neon, b = brillo secundario del barrido.
+  const NEON_TEAMS = {
+    ferrari:  { name: 'Ferrari',        a: [225, 6, 0],    b: [255, 214, 0] },
+    mclaren:  { name: 'McLaren',        a: [255, 135, 0],  b: [71, 214, 255] },
+    mercedes: { name: 'Mercedes',       a: [0, 210, 190],  b: [220, 240, 255] },
+    redbull:  { name: 'Red Bull',       a: [30, 65, 255],  b: [255, 210, 0] },
+    williams: { name: 'Williams',       a: [0, 160, 255],  b: [255, 255, 255] },
+    alpine:   { name: 'Alpine',         a: [255, 80, 180], b: [0, 145, 255] },
+    aston:    { name: 'Aston Martin',   a: [0, 160, 120],  b: [206, 255, 60] },
+    haas:     { name: 'Haas',           a: [235, 235, 240], b: [225, 6, 0] },
+    sauber:   { name: 'Sauber',         a: [82, 226, 82],  b: [255, 255, 255] },
+    lotus:    { name: 'Lotus',          a: [255, 180, 0],  b: [30, 30, 30] },
+    brawn:    { name: 'Brawn GP',       a: [120, 255, 180], b: [255, 255, 255] },
+    renault:  { name: 'Renault',        a: [255, 215, 0],  b: [20, 20, 20] }
+  };
+
+  // Mezcla un color RGB con una base (por defecto, un negro azulado) para
+  // obtener fondos y textos coherentes con el equipo activo.
+  function mixRgb(color, factor, base) {
+    const b = base || [8, 8, 12];
+    return color.map((v, i) => Math.round(b[i] + (v - b[i]) * factor));
+  }
+
+  function setNeon(team) {
+    const key = String(team || 'ferrari').toLowerCase();
+    const t = NEON_TEAMS[key] || NEON_TEAMS.ferrari;
+    const root = document.documentElement.style;
+    root.setProperty('--neon-a', t.a.join(', '));
+    root.setProperty('--neon-b', t.b.join(', '));
+    // Texto claro teñido, fondo profundo y panel intermedio: toda la paleta
+    // del reproductor cambia con el equipo, no solo el borde.
+    root.setProperty('--neon-text', mixRgb(t.a, .55, [255, 255, 255]).join(', '));
+    root.setProperty('--neon-dark', mixRgb(t.a, .12).join(', '));
+    root.setProperty('--neon-panel', mixRgb(t.a, .22).join(', '));
+    root.setProperty('--neon-a-dark', t.a.map(v => Math.round(v * .42)).join(', '));
+    document.body.dataset.neon = key;
+    return key;
+  }
+
+  const LAYER_TIPS = {
+    normal: 'Capa: normal',
+    top: 'Capa: siempre encima',
+    bottom: 'Capa: fondo de escritorio'
+  };
+
+  function setLayer(mode) {
+    const key = LAYER_TIPS[mode] ? mode : 'normal';
+    const btn = document.getElementById('layer');
+    if (btn) {
+      btn.dataset.tip = LAYER_TIPS[key];
+      btn.setAttribute('aria-label', LAYER_TIPS[key]);
+      btn.classList.toggle('active', key !== 'normal');
+      btn.dataset.layer = key;
+    }
+    return key;
+  }
+
+  let state = { src: '', title: '', option: '', type: '', sources: [] };
+
+  function post(msg) {
+    if (!host) { return; }
+    try { host.postMessage(msg); } catch (e) { }
+  }
+
+  function updateType(type) {
+    if (!type) {
+      typeChip.hidden = true;
+      return;
+    }
+    typeChip.textContent = type.toUpperCase();
+    typeChip.hidden = false;
+    const color = TYPE_COLORS[type] || (/^Libres/.test(type) ? '#38bdf8' : '#e10600');
+    typeChip.style.setProperty('--type-color', color);
+  }
+
+  function updateMeta() {
+    const title = state.title || 'Fórmula 1';
+    const option = state.option || 'Reproductor';
+    titleEl.textContent = title;
+    titleEl.title = title;
+    optionChip.textContent = option;
+    optionChip.title = option;
+    updateType(state.type);
+    // Prefijo estable: el monitor lo usa para localizar la ventana externa.
+    document.title = 'F1 \u25B8 ' + option + ' \u00B7 ' + title;
+  }
+
+  // --- Selector inteligente de fuentes -------------------------------------
+  // Panel agrupado por servicio con badges de calidad/idioma. Se puede usar
+  // con ratón o teclado (flechas, Inicio/Fin, Enter y Escape).
+  let sourceOptions = [];
+  let sourceIndex = -1;
+
+  // Memoria por servicio: guarda calidad e idioma elegidos en cada servicio y
+  // los reaplica en la siguiente entrada que tenga varias fuentes.
+  const PREF_KEY = 'f1.sourcePrefs.v1';
+  const a11yStatus = document.getElementById('a11yStatus');
+
+  function say(text) {
+    if (a11yStatus) { a11yStatus.textContent = text; }
+  }
+
+  function loadPrefs() {
+    try {
+      const raw = localStorage.getItem(PREF_KEY);
+      const obj = raw ? JSON.parse(raw) : {};
+      return obj && typeof obj === 'object' ? obj : {};
+    }
+    catch (e) { return {}; }
+  }
+
+  function savePref(item) {
+    try {
+      const prefs = loadPrefs();
+      prefs[sourceService(item)] = {
+        quality: item.quality || '',
+        lang: item.lang || '',
+        at: Date.now()
+      };
+      const names = Object.keys(prefs).sort((a, b) => (prefs[b].at || 0) - (prefs[a].at || 0));
+      const trimmed = {};
+      names.slice(0, 12).forEach((k) => { trimmed[k] = prefs[k]; });
+      localStorage.setItem(PREF_KEY, JSON.stringify(trimmed));
+    }
+    catch (e) { }
+  }
+
+  function preferredSource() {
+    const prefs = loadPrefs();
+    const services = Object.keys(prefs).sort((a, b) => (prefs[b].at || 0) - (prefs[a].at || 0));
+    for (const svc of services) {
+      const p = prefs[svc];
+      if (!p) { continue; }
+      const sameService = sourceOptions.filter((o) => sourceService(o) === svc);
+      if (!sameService.length) { continue; }
+      const exact = sameService.find((o) => (o.quality || '') === (p.quality || '') && (o.lang || '') === (p.lang || ''));
+      return exact || sameService[0];
+    }
+    return null;
+  }
+
+  function sourceService(item) {
+    return item.service || item.serviceKey || 'Otras fuentes';
+  }
+
+  function sourceColor(item) {
+    if (item.color) { return item.color; }
+    const map = {
+      dazn: '#00e0b8', espn: '#e10600', tnt: '#00a3ff', sky: '#7b61ff',
+      f1tv: '#ff2d55', movistar: '#00b3e3', voe: '#ffb020',
+      streamtape: '#3b82f6', doodstream: '#f97316', filemoon: '#a855f7',
+      mixdrop: '#22c55e', okru: '#f59e0b', directo: '#22c55e'
+    };
+    return map[(item.serviceKey || '').toLowerCase()] || 'rgb(var(--neon-a))';
+  }
+
+  function currentSource() {
+    return sourceOptions.find((o) => o.url === state.src) || sourceOptions[0] || null;
+  }
+
+  function closeSources(focusBtn) {
+    if (sourcePanel.hidden) { return; }
+    sourcePanel.hidden = true;
+    sourceBtn.setAttribute('aria-expanded', 'false');
+    sourceIndex = -1;
+    if (focusBtn) { sourceBtn.focus(); }
+  }
+
+  function highlightSource(i, scroll) {
+    const opts = sourceList.querySelectorAll('.sp-opt');
+    if (!opts.length) { return; }
+    if (i < 0) { i = 0; }
+    if (i >= opts.length) { i = opts.length - 1; }
+    opts.forEach((el) => el.classList.remove('focus'));
+    sourceIndex = i;
+    const el = opts[i];
+    el.focus();
+    if (scroll !== false) { el.scrollIntoView({ block: 'nearest' }); }
+  }
+
+  function openSources() {
+    if (sourceWrap.hidden || !sourcePanel.hidden) { return; }
+    sourcePanel.hidden = false;
+    sourceBtn.setAttribute('aria-expanded', 'true');
+    const opts = Array.prototype.slice.call(sourceList.querySelectorAll('.sp-opt'));
+    const active = sourceList.querySelector('.sp-opt.active');
+    highlightSource(Math.max(0, opts.indexOf(active)), true);
+  }
+
+  function updateSourceButton() {
+    const item = currentSource();
+    if (!item) { return; }
+    sourceLabel.textContent = sourceService(item);
+    sourceDot.style.setProperty('--svc', sourceColor(item));
+    sourceQn.textContent = [item.quality, item.lang].filter(Boolean).join(' ');
+    const extra = [item.quality, item.lang].filter(Boolean).join(' · ');
+    sourceBtn.title = item.name + (extra ? ' · ' + extra : '');
+  }
+
+  function markActiveSource() {
+    sourceList.querySelectorAll('.sp-opt').forEach((el) => {
+      const on = el.dataset.url === state.src;
+      el.classList.toggle('active', on);
+      el.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+
+  function chooseSource(url) {
+    const item = sourceOptions.find((o) => o.url === url);
+    if (!item) { return; }
+    const same = item.url === state.src;
+    closeSources(false);
+    if (same) { return; }
+    state.src = item.url;
+    state.option = item.name;
+    savePref(item);
+    say('Fuente: ' + item.name);
+    updateMeta();
+    updateSourceButton();
+    markActiveSource();
+    startLoad();
+    post({
+      type: 'sourceChanged',
+      url: item.url,
+      name: item.name,
+      service: item.service,
+      quality: item.quality,
+      lang: item.lang
+    });
+  }
+
+  function buildSourceGroup(name, color, items) {
+    const sec = document.createElement('div');
+    sec.className = 'sp-group';
+
+    const head = document.createElement('div');
+    head.className = 'sp-service';
+    head.style.setProperty('--svc', color);
+    head.appendChild(document.createElement('i'));
+
+    const title = document.createElement('span');
+    title.textContent = name;
+    head.appendChild(title);
+
+    const count = document.createElement('em');
+    count.textContent = items.length;
+    head.appendChild(count);
+    sec.appendChild(head);
+
+    items.forEach((item) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sp-opt' + (item.url === state.src ? ' active' : '');
+      b.setAttribute('role', 'option');
+      b.setAttribute('aria-selected', item.url === state.src ? 'true' : 'false');
+      b.dataset.url = item.url;
+
+      const star = document.createElement('span');
+      star.className = 'star';
+      star.textContent = item.primary ? '★' : '';
+      b.appendChild(star);
+
+      const label = document.createElement('span');
+      label.className = 'name';
+      label.textContent = item.name || item.url;
+      b.appendChild(label);
+
+      const badges = document.createElement('span');
+      badges.className = 'badges';
+      if (item.quality) {
+        const q = document.createElement('span');
+        q.className = 'sp-badge q';
+        q.textContent = item.quality;
+        badges.appendChild(q);
+      }
+      if (item.lang) {
+        const l = document.createElement('span');
+        l.className = 'sp-badge';
+        l.textContent = item.lang;
+        badges.appendChild(l);
+      }
+      if (item.origin === 'catalog') {
+        const c = document.createElement('span');
+        c.className = 'sp-badge cat';
+        c.textContent = 'CAT';
+        badges.appendChild(c);
+      }
+      if (badges.childElementCount) { b.appendChild(badges); }
+
+      b.addEventListener('click', () => chooseSource(item.url));
+      sec.appendChild(b);
+    });
+    return sec;
+  }
+
+  function fillSources() {
+    const list = Array.isArray(state.sources) ? state.sources : [];
+    sourceOptions = list.filter((x) => x && x.url);
+    sourceList.innerHTML = '';
+    closeSources(false);
+
+    if (sourceOptions.length < 2) {
+      sourceWrap.hidden = true;
+      return;
+    }
+    sourceWrap.hidden = false;
+
+    if (!sourceOptions.some((o) => o.url === state.src)) {
+      state.src = sourceOptions[0].url;
+      state.option = sourceOptions[0].name;
+    }
+
+    // Agrupar conservando el orden: primero el servicio de la fuente activa.
+    const groups = [];
+    const byName = new Map();
+    sourceOptions.forEach((item) => {
+      const name = sourceService(item);
+      let group = byName.get(name);
+      if (!group) {
+        group = { name: name, color: sourceColor(item), items: [] };
+        byName.set(name, group);
+        groups.push(group);
+      }
+      group.items.push(item);
+    });
+
+    const current = currentSource();
+    if (current) {
+      const idx = groups.findIndex((g) => g.name === sourceService(current));
+      if (idx > 0) { groups.unshift(groups.splice(idx, 1)[0]); }
+    }
+
+    groups.forEach((g) => sourceList.appendChild(buildSourceGroup(g.name, g.color, g.items)));
+    sourceCount.textContent = sourceOptions.length + ' · ' + groups.length + (groups.length === 1 ? ' servicio' : ' servicios');
+    updateSourceButton();
+  }
+
+  function hideLoader() {
+    loader.classList.add('done');
+    if (state.src) { say('Reproduciendo ' + (state.option || 'reproductor')); }
+  }
+
+  function startLoad() {
+    if (!state.src) {
+      frame.style.display = 'none';
+      sourceLink.style.display = 'none';
+      loader.style.display = 'none';
+      emptyBox.style.display = 'flex';
+      say('Sin vídeo seleccionado');
+      return;
+    }
+    emptyBox.style.display = 'none';
+    loader.style.display = '';
+    loader.classList.remove('done');
+    frame.style.display = 'block';
+    sourceLink.style.display = '';
+    sourceLink.href = state.src;
+    frame.src = state.src;
+    say('Cargando ' + (state.option || 'reproductor'));
+    setTimeout(hideLoader, 15000);
+  }
+
+  function load(payload) {
+    if (!payload) { return; }
+    const next = Object.assign({}, state, payload);
+    if (!Array.isArray(next.sources)) { next.sources = state.sources || []; }
+    state = next;
+    if (payload.neon) { setNeon(payload.neon); }
+    if (payload.layer) { setLayer(payload.layer); }
+    updateMeta();
+    fillSources();
+    if (Array.isArray(payload.sources) && payload.sources.length > 1) {
+      const pref = preferredSource();
+      if (pref && pref.url !== state.src) {
+        state.src = pref.url;
+        state.option = pref.name;
+        updateMeta();
+        updateSourceButton();
+        markActiveSource();
+      }
+    }
+    startLoad();
+    if (embedded) { showDeck(); }
+  }
+
+  // API que usa el anfitrion (monitor.ps1) para cambiar de vídeo sin recargar.
+  window.F1Player = {
+    load: load,
+    setNeon: setNeon,
+    setLayer: setLayer,
+    neonTeams: Object.keys(NEON_TEAMS),
+    layerModes: Object.keys(LAYER_TIPS)
+  };
+  // Compatibilidad: el nombre antiguo sigue disponible.
+  window.F1Player.setVideoOnly = function (on) {
+    document.body.classList.toggle('video-only', !!on);
+    if (on) { showDeck(); }
+    else if (!state.src) { hideDeck(); }
+  };
+
+  frame.addEventListener('load', () => setTimeout(hideLoader, 350));
+
+  // Arranque: modo externo (window.__F1) o parámetros de URL.
+  const initial = {};
+  if (boot.neon) { setNeon(boot.neon); }
+  if (boot.layer) { setLayer(boot.layer); }
+  if (boot.src) {
+    Object.assign(initial, boot);
+  } else {
+    if (params.get('src')) { initial.src = params.get('src'); }
+    if (params.get('title')) { initial.title = params.get('title'); }
+    if (params.get('option')) { initial.option = params.get('option'); }
+    if (params.get('type')) { initial.type = params.get('type'); }
+  }
+  updateMeta();
+  if (initial.src) {
+    load(initial);
+  } else {
+    emptyBox.style.display = 'flex';
+    loader.style.display = 'none';
+  }
+
+  // --- Mostrar / ocultar el panel -----------------------------------------
+  let hideTimer = null;
+  let deckHintShown = false;
+
+  function showDeckHint() {
+    if (deckHintShown) { return; }
+    const hint = document.getElementById('deckHint');
+    if (!hint) { return; }
+    deckHintShown = true;
+    hint.classList.add('show');
+    setTimeout(() => hint.classList.remove('show'), 6500);
+  }
+
+  function showDeck() {
+    deck.classList.add('on');
+    edge.classList.add('on');
+    if (embedded) { showDeckHint(); }
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(hideDeck, embedded ? 4600 : 3200);
+  }
+
+  function hideDeck() {
+    // En modo solo vídeo y sin fuente la barra se queda fija: es la única forma
+    // de recuperar el listado.
+    if (!state.src && document.body.classList.contains('video-only')) { return; }
+    deck.classList.remove('on');
+    edge.classList.remove('on');
+    clearTimeout(hideTimer);
+  }
+
+  function wake() {
+    showDeck();
+  }
+
+  // La barra aparece al acercar el ratón al borde superior y también cuando
+  // el puntero entra en el propio panel.
+  window.addEventListener('mousemove', (ev) => {
+    if (ev.clientY <= 90) { wake(); }
+  });
+  deck.addEventListener('mouseenter', () => {
+    deck.classList.add('on');
+    clearTimeout(hideTimer);
+  });
+  deck.addEventListener('mouseleave', () => {
+    hideTimer = setTimeout(hideDeck, 900);
+  });
+
+  // Se muestra al cargar para que el usuario sepa que está ahí.
+  showDeck();
+
+  // --- Acciones ------------------------------------------------------------
+  document.getElementById('reload').addEventListener('click', () => {
+    if (state.src) { startLoad(); }
+  });
+
+  sourceBtn.addEventListener('click', () => {
+    if (sourcePanel.hidden) { openSources(); }
+    else { closeSources(true); }
+  });
+
+  sourceBtn.addEventListener('keydown', (ev) => {
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      openSources();
+    }
+  });
+
+  sourcePanel.addEventListener('keydown', (ev) => {
+    const opts = sourceList.querySelectorAll('.sp-opt');
+    if (!opts.length) { return; }
+    switch (ev.key) {
+      case 'ArrowDown': ev.preventDefault(); highlightSource(sourceIndex + 1); break;
+      case 'ArrowUp': ev.preventDefault(); highlightSource(sourceIndex - 1); break;
+      case 'Home': ev.preventDefault(); highlightSource(0); break;
+      case 'End': ev.preventDefault(); highlightSource(opts.length - 1); break;
+      case 'Enter':
+      case ' ': {
+        ev.preventDefault();
+        const el = opts[sourceIndex] || document.activeElement;
+        if (el && el.classList.contains('sp-opt')) { el.click(); }
+        break;
+      }
+      case 'Escape': ev.preventDefault(); closeSources(true); break;
+      case 'Tab': closeSources(false); break;
+      default: break;
+    }
+  });
+
+  document.addEventListener('mousedown', (ev) => {
+    if (sourcePanel.hidden) { return; }
+    if (!sourceWrap.contains(ev.target)) { closeSources(false); }
+  });
+
+  // En modo incrustado el enlace se abre en el navegador del sistema, no en
+  // una ventana nueva de WebView2 (que está bloqueada a propósito).
+  sourceLink.addEventListener('click', (ev) => {
+    if (embedded && state.src) {
+      ev.preventDefault();
+      post({ type: 'openExternal', url: state.src });
+    }
+  });
+
+  function toggleFullscreen() {
+    const el = document.documentElement;
+    if (!document.fullscreenElement) {
+      const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      if (fn) { fn.call(el); }
+    } else {
+      const fn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+      if (fn) { fn.call(document); }
+    }
+  }
+  document.getElementById('fs').addEventListener('click', toggleFullscreen);
+
+  document.addEventListener('fullscreenchange', () => {
+    const btn = document.getElementById('fs');
+    const on = !!document.fullscreenElement;
+    btn.dataset.tip = on ? 'Salir de pantalla completa (F)' : 'Pantalla completa (F)';
+    btn.setAttribute('aria-label', on ? 'Salir de pantalla completa' : 'Pantalla completa');
+  });
+
+  // --- Controles del anfitrion (solo en modo incrustado) -------------------
+  document.getElementById('drag').addEventListener('mousedown', (ev) => {
+    ev.preventDefault();
+    post({ type: 'drag' });
+  });
+  document.getElementById('showList').addEventListener('click', () => post({ type: 'showList' }));
+  document.getElementById('layer').addEventListener('click', () => post({ type: 'layer' }));
+  document.getElementById('min').addEventListener('click', () => post({ type: 'minimize' }));
+  document.getElementById('max').addEventListener('click', () => post({ type: 'maximize' }));
+  document.getElementById('close').addEventListener('click', () => post({ type: 'close' }));
+
+  document.addEventListener('keydown', (ev) => {
+    if (ev.target && /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName)) { return; }
+    if (!sourcePanel.hidden) { return; }
+    const key = ev.key.toLowerCase();
+    if (key === 'f') { ev.preventDefault(); toggleFullscreen(); }
+    else if (key === 'r') { ev.preventDefault(); document.getElementById('reload').click(); }
+    else if (key === 'l') { ev.preventDefault(); post({ type: 'layer' }); }
+    else if (key === 'escape') { hideDeck(); }
+  });
+</script>
+</body>
+</html>

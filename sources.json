@@ -1,0 +1,54 @@
+{
+  "version": 4,
+  "name": "F1 Tray Monitor — catálogo de fuentes",
+  "updated": "2026-11-14T00:00:00Z",
+  "refreshHours": 6,
+  "services": {
+    "dazn":       { "label": "DAZN",        "short": "DAZN", "color": "#00E0B8" },
+    "espn":       { "label": "ESPN",        "short": "ESPN", "color": "#E10600" },
+    "tnt":        { "label": "TNT Sports",  "short": "TNT",  "color": "#00A3FF" },
+    "sky":        { "label": "Sky Sport",   "short": "SKY",  "color": "#7B61FF" },
+    "f1tv":       { "label": "F1 TV",       "short": "F1TV", "color": "#FF2D55" },
+    "movistar":   { "label": "Movistar+",   "short": "M+",   "color": "#00B3E3" },
+    "voe":        { "label": "VOE",         "short": "VOE",  "color": "#FFB020" },
+    "streamtape": { "label": "Streamtape",  "short": "ST",   "color": "#3B82F6" },
+    "doodstream": { "label": "DoodStream",  "short": "DOOD", "color": "#F97316" },
+    "filemoon":   { "label": "Filemoon",    "short": "FM",   "color": "#A855F7" },
+    "mixdrop":    { "label": "MixDrop",     "short": "MD",   "color": "#22C55E" },
+    "okru":       { "label": "OK.ru",       "short": "OK",   "color": "#F59E0B" },
+    "directo":    { "label": "Directo",     "short": "LIVE", "color": "#22C55E" }
+  },
+  "rules": [],
+  "_ejemplo": {
+    "descripcion": "Copia un objeto de 'rules' y pon 'enabled' a true para publicar fuentes. Las reglas se ordenan por 'priority' (mayor primero) y se aplican solo si TODAS las condiciones de 'match' coinciden. 'starts' y 'expires' aceptan fechas ISO 8601 y permiten caducar enlaces sin borrarlos. El esquema está en sources.schema.json.",
+    "enabled": true,
+    "priority": 10,
+    "starts": "2026-11-14T00:00:00Z",
+    "expires": "2026-12-01T00:00:00Z",
+    "match": {
+      "any": true,
+      "id": "53885",
+      "year": 2026,
+      "gp": "brasil",
+      "session": "Carrera",
+      "titleContains": "brasil"
+    },
+    "options": [
+      {
+        "name": "DAZN F1 · Castellano",
+        "url": "https://ejemplo.com/embed/abc123",
+        "service": "dazn",
+        "quality": "1080p",
+        "lang": "ES",
+        "primary": true
+      },
+      {
+        "name": "VOE · Inglés",
+        "url": "https://ejemplo.com/e/def456",
+        "service": "voe",
+        "quality": "720p",
+        "lang": "EN"
+      }
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Empaquetar y publicar
+    runs-on: windows-latest
+
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Validar sintaxis y catalogo
+        shell: powershell
+        run: |
+          $files = @('monitor.ps1', 'f1_scraper.ps1', 'check_sources.ps1', 'package.ps1',
+                     'tools/add-source.ps1', 'tools/stream-part.ps1')
+          foreach ($f in $files) {
+            $errs = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f), [ref]$null, [ref]$errs)
+            if ($errs) { $errs | ForEach-Object { Write-Host "::error file=$f::$($_.Message)" }; exit 1 }
+          }
+          .\check_sources.ps1
+
+      - name: Construir el paquete reproducible
+        shell: powershell
+        run: .\package.ps1
+
+      - name: Comprobar el ZIP
+        shell: powershell
+        run: |
+          $zip = Get-ChildItem .\releases\F1-Tray-Monitor-*.zip | Sort-Object LastWriteTime | Select-Object -Last 1
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($zip.FullName)
+          $names = $archive.Entries | ForEach-Object { $_.FullName }
+          $archive.Dispose()
+          if ($names -match 'f1_posts\.json|f1_state\.json|monitor\.log|/releases/') {
+            throw 'El ZIP incluye archivos de ejecucion'
+          }
+          Write-Host "ZIP verificado: $($names.Count) entradas"
+
+      - name: Crear la release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --title "F1 Tray Monitor $TAG" \
+            --generate-notes \
+            releases/F1-Tray-Monitor-*.zip releases/SHA256SUMS

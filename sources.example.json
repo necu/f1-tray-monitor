@@ -1,0 +1,56 @@
+{
+  "version": 4,
+  "name": "F1 Tray Monitor — catálogo de ejemplo",
+  "updated": "2026-11-14T00:00:00Z",
+  "refreshHours": 6,
+  "services": {
+    "dazn": { "label": "DAZN", "short": "DAZN", "color": "#00E0B8" },
+    "voe":  { "label": "VOE",  "short": "VOE",  "color": "#FFB020" }
+  },
+  "rules": [
+    {
+      "enabled": true,
+      "priority": 20,
+      "starts": "2026-11-14T00:00:00Z",
+      "expires": "2026-12-01T00:00:00Z",
+      "match": {
+        "year": 2026,
+        "gp": "brasil",
+        "session": "Carrera"
+      },
+      "options": [
+        {
+          "name": "DAZN F1 · Castellano",
+          "url": "https://ejemplo.com/embed/brasil-carrera",
+          "service": "dazn",
+          "quality": "1080p",
+          "lang": "ES",
+          "primary": true
+        },
+        {
+          "name": "VOE · Inglés",
+          "url": "https://ejemplo.com/e/brasil-carrera-en",
+          "service": "voe",
+          "quality": "720p",
+          "lang": "EN"
+        }
+      ]
+    },
+    {
+      "enabled": true,
+      "priority": 5,
+      "match": {
+        "titleContains": "clasificación"
+      },
+      "options": [
+        {
+          "name": "VOE · Clasificación",
+          "url": "https://ejemplo.com/e/clasificacion",
+          "service": "voe",
+          "quality": "1080p",
+          "lang": "ES"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+    "intervalMinutes":  14,
+    "days":  [
+                 "Friday",
+                 "Saturday",
+                 "Sunday"
+             ],
+    "playerMode":  "embedded",
+    "playerBrowser":  "auto",
+    "cleanPlayer":  true,
+    "maxPostsOnFirstRun":  6,
+    "notifications":  true,
+    "startMinimized":  true,
+    "openVideoOnly":  false,
+    "autoLoadAll":  false,
+    "rememberSearch":  false,
+    "neonTeam":  "haas",
+    "neonCycle":  true,
+    "sourcesEnabled":  true,
+    "sourcesUrl":  "https://raw.githubusercontent.com/necu/f1-tray-monitor/main/sources.json",
+    "sourcesRefreshHours":  6,
+    "trayHint":  true,
+    "updateCheck":  true
+}

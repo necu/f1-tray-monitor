@@ -1,0 +1,32 @@
+# Datos de ejecucion (se generan solos en la primera puesta en marcha)
+f1_posts.json
+f1_state.json
+f1_loadall_progress.json
+sources.cache.json
+monitor.log
+monitor.log.old
+*.lnk
+
+# Metadatos que genera el navegador al cargar la extension local
+opera-extension/_metadata/
+
+# Sistema
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Editores y herramientas
+.vs/
+.vscode/
+.idea/
+.freebuff/
+.codebuffignore
+*.user
+*.suo
+
+# Pruebas y temporales
+*.tmp
+*.bak
+
+# Los ZIP se publican en GitHub Releases; la copia local no se versiona
+releases/*.zip

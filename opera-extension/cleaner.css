@@ -1,0 +1,38 @@
+/*!
+ * F1 Player Cleaner - reglas CSS de respaldo
+ * Oculta contenedores publicitarios conocidos incluso antes de que el
+ * JavaScript del sitio los rellene.
+ */
+
+[id*="popunder"],
+[class*="popunder"],
+[id*="popup-ad"],
+[class*="popup-ad"],
+[id*="ad-overlay"],
+[class*="ad-overlay"],
+[class*="adsbox"],
+[id*="adsbox"],
+[class*="ad-banner"],
+[class*="advert-banner"],
+[data-ad-slot],
+[data-ad-client],
+.adsbygoogle,
+iframe[src*="doubleclick.net"],
+iframe[src*="googlesyndication.com"],
+iframe[src*="googleadservices.com"],
+iframe[src*="popads.net"],
+iframe[src*="popcash.net"],
+iframe[src*="propellerads.com"],
+iframe[src*="propellerclick.com"],
+iframe[src*="exoclick.com"],
+iframe[src*="exosrv.com"],
+iframe[src*="juicyads.com"],
+iframe[src*="trafficjunky.net"],
+iframe[src*="adsterra.com"],
+iframe[src*="hilltopads.net"],
+iframe[src*="clickadu.com"],
+iframe[src*="pemsrv.com"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}

@@ -1,0 +1,59 @@
+name: Sugerencia de mejora
+description: Propón una idea o una mejora para el proyecto
+title: "[Mejora] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por tu idea. Cuéntanos qué problema resuelve y cómo te gustaría que
+        funcionara.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: ¿Qué problema resuelve?
+      description: Describe la situación actual y por qué es incómoda.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Propuesta
+      description: ¿Cómo debería comportarse el programa?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: Otras formas de resolverlo que hayas pensado.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Interfaz del monitor
+        - Reproductor
+        - Bloqueo de publicidad
+        - Scraper y paginación
+        - Notificaciones
+        - Documentación
+        - Otra
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Comprobaciones
+      options:
+        - label: He buscado sugerencias duplicadas.
+          required: true
+        - label: Esta propuesta no depende de servicios externos de pago.
+          required: true

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F1 Tray Monitor — Fórmula 1 en tu bandeja</title>
+<meta name="description" content="App portable para Windows que reúne el blog de F1, un catálogo editable de fuentes y un reproductor incrustado. Sin instalador, sin cuentas y sin telemetría.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0b0b10">
+<link rel="canonical" href="https://necu.github.io/f1-tray-monitor/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="F1 Tray Monitor">
+<meta property="og:locale" content="es_ES">
+<meta property="og:title" content="F1 Tray Monitor — La Fórmula 1, en tu bandeja">
+<meta property="og:description" content="Avisa de las nuevas sesiones de F1 y las reproduce dentro de la app. Catálogo de fuentes editable, favoritos y sin instalador.">
+<meta property="og:url" content="https://necu.github.io/f1-tray-monitor/">
+<meta property="og:image" content="https://necu.github.io/f1-tray-monitor/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="F1 Tray Monitor — La Fórmula 1, en tu bandeja">
+<meta name="twitter:description" content="Avisa de las nuevas sesiones de F1 y las reproduce dentro de la app. Portable, sin instalador y sin telemetría.">
+<meta name="twitter:image" content="https://necu.github.io/f1-tray-monitor/social-preview.png">
+<link rel="icon" href="icon-check.png" type="image/png">
+<style>
+  :root {
+    --bg: #0b0b10;
+    --bg-2: #111118;
+    --panel: #15151d;
+    --line: #262633;
+    --text: #ececf3;
+    --muted: #9a9aae;
+    --red: #e10600;
+    --neon: #00e0b8;
+    --warn: #ffb020;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(900px 500px at 15% -10%, rgba(225, 6, 0, .18), transparent 60%),
+      radial-gradient(800px 500px at 95% 0%, rgba(0, 224, 184, .10), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font: 16px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  a { color: var(--neon); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { width: min(1120px, 92vw); margin: 0 auto; }
+
+  header.site {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(11, 11, 16, .82);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav { display: flex; align-items: center; gap: 20px; padding: 14px 0; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .04em; }
+  .brand span.dot {
+    width: 10px; height: 26px; border-radius: 3px;
+    background: linear-gradient(180deg, var(--red), #7a0300);
+    box-shadow: 0 0 18px rgba(225, 6, 0, .55);
+  }
+  .nav-links { margin-left: auto; display: flex; gap: 18px; flex-wrap: wrap; }
+  .nav-links a { color: var(--muted); font-size: .92rem; }
+  .nav-links a:hover { color: var(--text); }
+
+  .hero { padding: 72px 0 40px; }
+  .eyebrow {
+    display: inline-block; padding: 5px 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg-2);
+    color: var(--muted); font-size: .8rem; letter-spacing: .08em; text-transform: uppercase;
+  }
+  h1 { font-size: clamp(2.1rem, 5vw, 3.6rem); line-height: 1.05; margin: 18px 0 14px; }
+  h1 em { font-style: normal; color: var(--red); }
+  .lead { color: var(--muted); max-width: 62ch; font-size: 1.06rem; }
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 20px; border-radius: 999px; font-weight: 700; font-size: .95rem;
+    border: 1px solid var(--line); color: var(--text); background: var(--panel);
+  }
+  .btn:hover { text-decoration: none; border-color: #3a3a4c; }
+  .btn.primary {
+    background: linear-gradient(120deg, var(--red), #a30400);
+    border-color: transparent; color: #fff;
+    box-shadow: 0 10px 30px rgba(225, 6, 0, .25);
+  }
+  .btn.ghost { background: transparent; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 42px 0 10px; }
+  .stat { background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .stat strong { display: block; font-size: 1.35rem; }
+  .stat span { color: var(--muted); font-size: .82rem; }
+
+  section { padding: 58px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); margin: 0 0 8px; }
+  .sub { color: var(--muted); margin: 0 0 28px; max-width: 70ch; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+  .card {
+    background: linear-gradient(180deg, var(--panel), var(--bg-2));
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px; position: relative; overflow: hidden;
+  }
+  .card::after {
+    content: ""; position: absolute; inset: 0 auto 0 0; width: 3px;
+    background: linear-gradient(180deg, var(--red), transparent);
+  }
+  .card h3 { margin: 0 0 6px; font-size: 1.02rem; }
+  .card p { margin: 0; color: var(--muted); font-size: .92rem; }
+
+  .shots { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; align-items: start; }
+  .shots figure { margin: 0; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
+  .shots img { width: 100%; height: auto; display: block; border-radius: 10px; }
+  .shots figcaption { color: var(--muted); font-size: .82rem; padding: 10px 6px 2px; }
+  .shots .col { display: grid; gap: 16px; }
+
+  .steps { counter-reset: step; display: grid; gap: 14px; }
+  .step { display: grid; grid-template-columns: 34px 1fr; gap: 14px; align-items: start; }
+  .step::before {
+    counter-increment: step; content: counter(step);
+    width: 34px; height: 34px; border-radius: 50%;
+    display: grid; place-items: center; font-weight: 800;
+    background: var(--bg-2); border: 1px solid var(--line); color: var(--neon);
+  }
+  .step p { margin: 4px 0 0; color: var(--muted); }
+
+  pre {
+    background: #08080c; border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px; overflow-x: auto; font-size: .86rem; line-height: 1.5;
+  }
+  code { font-family: "Cascadia Mono", Consolas, monospace; }
+  .hash {
+    display: block; margin-top: 10px; word-break: break-all;
+    color: var(--muted); font-size: .78rem;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  td code { color: var(--text); }
+
+  .callout {
+    border-left: 3px solid var(--warn); background: rgba(255, 176, 32, .06);
+    padding: 14px 16px; border-radius: 8px; color: #d8c9a8; font-size: .92rem;
+  }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .74rem; font-weight: 700; letter-spacing: .04em; }
+  .pill.done { background: rgba(0, 224, 184, .12); color: var(--neon); }
+  .pill.next { background: rgba(255, 176, 32, .12); color: var(--warn); }
+
+  footer.site { border-top: 1px solid var(--line); padding: 30px 0 50px; color: var(--muted); font-size: .86rem; }
+  footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
+
+  @media (max-width: 820px) {
+    .shots { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .nav-links { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap nav">
+    <div class="brand"><span class="dot"></span> F1 TRAY MONITOR</div>
+    <nav class="nav-links" aria-label="Secciones">
+      <a href="#caracteristicas">Características</a>
+      <a href="#capturas">Capturas</a>
+      <a href="#instalacion">Instalación</a>
+      <a href="#fuentes">Fuentes</a>
+      <a href="#roadmap">Hoja de ruta</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <span class="eyebrow">Windows · PowerShell 5.1 · WebView2</span>
+    <h1>La Fórmula 1, en tu bandeja.<br><em>Sin instalador y sin ruido.</em></h1>
+    <p class="lead">
+      F1 Tray Monitor reúne las entradas del blog, un catálogo de fuentes que puedes editar en
+      GitHub y un reproductor incrustado con selector por plataforma. Todo en una app portable,
+      en español y sin telemetría.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="#descarga">Descargar 1.3.0</a>
+      <a class="btn ghost" href="#caracteristicas">Ver qué hace</a>
+      <a class="btn ghost" href="ROADMAP.md">Hoja de ruta</a>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><strong>0</strong><span>telemetría y cuentas</span></div>
+      <div class="stat"><strong>~0,3 s</strong><span>repintar 246 entradas</span></div>
+      <div class="stat"><strong>13</strong><span>servicios en el catálogo</span></div>
+      <div class="stat"><strong>54</strong><span>archivos en el ZIP</span></div>
+    </div>
+  </div>
+
+  <section id="caracteristicas">
+    <div class="wrap">
+      <h2>Pensada para usarse, no para configurarse</h2>
+      <p class="sub">Cada función responde a una fricción real: esperar, buscar a mano, perder el hilo de qué GP estaba abierto o no saber qué fuente funciona.</p>
+      <div class="grid">
+        <article class="card"><h3>Bandeja con panel propio</h3><p>Clic para mostrar u ocultar; clic derecho abre un panel oscuro con buscador, entradas desplegables y acciones rápidas.</p></article>
+        <article class="card"><h3>Vigilancia configurable</h3><p>Revisa el blog cada N minutos, solo los días que elijas, y avisa solo de lo nuevo.</p></article>
+        <article class="card"><h3>Buscador que entiende F1</h3><p>Ignora tildes, conoce sinónimos (<code>interlagos</code> → Brasil), prefijos y erratas.</p></article>
+        <article class="card"><h3>Favoritos compartidos</h3><p>Marca un GP o una sesión y filtra solo favoritos en la ventana y en la bandeja a la vez.</p></article>
+        <article class="card"><h3>Historial de búsquedas</h3><p>Las últimas 8 consultas, en un panel flotante que no roba el foco, con borrado individual.</p></article>
+        <article class="card"><h3>Catálogo editable</h3><p>Un <code>sources.json</code> con servicios, colores, prioridades y caducidad. Se puede alojar en GitHub y se refresca cada 6 h.</p></article>
+        <article class="card"><h3>Selector por plataforma</h3><p>Fuentes agrupadas, insignias de calidad e idioma, estrella para la principal y navegación por teclado.</p></article>
+        <article class="card"><h3>Reproductor incrustado</h3><p>WebView2 con capas de ventana, modo solo vídeo y memoria de calidad/idioma por servicio.</p></article>
+        <article class="card"><h3>Ajustes portables</h3><p>Exporta e importa configuración, favoritos, búsquedas y catálogo en un único JSON.</p></article>
+        <article class="card"><h3>Mantenimiento integrado</h3><p>Visor de registro, comprobación de versiones en GitHub Releases y paquete reproducible con SHA256.</p></article>
+        <article class="card"><h3>Rápida de verdad</h3><p>Ventana precalentada, tarjetas cacheadas y divisor proporcional sin mínimos rígidos.</p></article>
+        <article class="card"><h3>Privada por diseño</h3><p>Sin analítica ni servidores propios. Los datos viven en tu carpeta, en dos archivos JSON.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="capturas">
+    <div class="wrap">
+      <h2>Así se ve</h2>
+      <p class="sub">Capturas reales generadas por la autoprueba de la app, no montajes.</p>
+      <div class="shots">
+        <figure>
+          <img src="monitor.png" alt="Ventana principal con el listado de GP y el reproductor incrustado" loading="lazy">
+          <figcaption>Listado de tarjetas, buscador y reproductor incrustado.</figcaption>
+        </figure>
+        <div class="col">
+          <figure>
+            <img src="settings.png" alt="Panel de ajustes con el catálogo, las opciones y el mantenimiento" loading="lazy">
+            <figcaption>Ajustes por iconos, catálogo y mantenimiento.</figcaption>
+          </figure>
+          <figure>
+            <img src="tray.png" alt="Panel de la bandeja con buscador y entradas" loading="lazy">
+            <figcaption>Panel de bandeja con buscador propio.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="instalacion">
+    <div class="wrap">
+      <h2>Instalar en tres pasos</h2>
+      <p class="sub">No hay instalador ni permisos de administrador. La app se queda en la carpeta que elijas.</p>
+      <div class="steps">
+        <div class="step"><div><strong>Descarga el ZIP</strong><p>Desde <a href="#descarga">la sección de descarga</a> o desde GitHub Releases.</p></div></div>
+        <div class="step"><div><strong>Descomprime en una carpeta estable</strong><p>Por ejemplo <code>C:\Users\tu-usuario\F1TrayMonitor</code>.</p></div></div>
+        <div class="step"><div><strong>Doble clic en <code>F1 Monitor.cmd</code></strong><p>El icono aparece en la bandeja. La primera vez descarga las entradas recientes.</p></div></div>
+      </div>
+      <pre><code>Get-FileHash .\F1-Tray-Monitor-1.3.0.zip -Algorithm SHA256
+# 9D7FA28830B278245F0B258D76C18942E3D2043363D2AF17097A73DA22D1B8BF</code></pre>
+      <span class="hash">SHA256 del ZIP 1.3.0 · compruébalo con <code>releases/SHA256SUMS</code></span>
+    </div>
+  </section>
+
+  <section id="fuentes">
+    <div class="wrap">
+      <h2>Fuentes que puedes tocar</h2>
+      <p class="sub">El catálogo es un JSON versionado: servicios con su color, reglas que casan por GP, año, sesión o texto, y opciones con calidad e idioma. Sin volver a compilar.</p>
+      <div class="grid">
+        <article class="card">
+          <h3>Reglas con prioridad</h3>
+          <p><code>priority</code> decide conflictos y <code>starts</code>/<code>expires</code> retiran enlaces temporales sin borrarlos.</p>
+        </article>
+        <article class="card">
+          <h3>Alta guiada</h3>
+          <p><code>tools/add-source.ps1</code> valida la URL, comprueba el servicio, evita duplicados y pasa <code>check_sources.ps1</code> antes de guardar.</p>
+        </article>
+        <article class="card">
+          <h3>Validación en CI</h3>
+          <p>Esquema JSON, ejemplo mínimo y script de comprobación en cada push y pull request.</p>
+        </article>
+      </div>
+      <pre><code>.\tools\add-source.ps1 -Url "https://ejemplo.com/embed/abc" `
+    -Name "DAZN ES" -Service dazn -Quality 1080p -Lang ES `
+    -Year 2026 -Gp brasil -Session Carrera -Priority 30</code></pre>
+      <p class="sub" style="margin-top:18px">
+        El catálogo solo contiene URLs y metadatos: el proyecto no aloja ni redistribuye vídeo.
+      </p>
+    </div>
+  </section>
+
+  <section id="roadmap">
+    <div class="wrap">
+      <h2>Qué viene después</h2>
+      <p class="sub">La 1.3.0 está cerrada. La fase 2 se centra en compartir mejor y abrir el sistema de fuentes.</p>
+      <table>
+        <thead><tr><th>Área</th><th>Estado</th><th>Detalle</th></tr></thead>
+        <tbody>
+          <tr><td>Página y release automática</td><td><span class="pill done">hecho</span></td><td>Esta página, workflow por tag y hashes.</td></tr>
+          <tr><td>Alta de fuentes</td><td><span class="pill done">hecho</span></td><td><code>add-source.ps1</code> + skill para investigar y validar.</td></tr>
+          <tr><td>Reproductor universal</td><td><span class="pill next">2.1</span></td><td>mpv embebido: MKV, HEVC, AC3/DTS, subtítulos y varias pistas dentro de la app.</td></tr>
+          <tr><td>Descargas legales</td><td><span class="pill next">2.2</span></td><td>aria2 con cola, pausa y «ver ahora»; sin índices de contenido con derechos.</td></tr>
+          <tr><td>Torrents progresivos</td><td><span class="pill next">2.3</span></td><td>Prioridad cabeza/cola y reproducción sobre el archivo en crecimiento.</td></tr>
+          <tr><td>Teclado en tarjetas</td><td><span class="pill next">pendiente</span></td><td>Tab, Enter, flechas y foco visible.</td></tr>
+        </tbody>
+      </table>
+      <p class="sub" style="margin-top:18px"><a href="ROADMAP.md">Leer el roadmap completo →</a></p>
+    </div>
+  </section>
+
+  <section id="descarga">
+    <div class="wrap">
+      <h2>Descarga</h2>
+      <p class="sub">Paquete portable para Windows 10/11. Incluye WebView2 SDK, extensión de limpieza y documentación bilingüe.</p>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/necu/f1-tray-monitor/releases/latest">Última release en GitHub</a>
+        <a class="btn ghost" href="#instalacion">Cómo instalar</a>
+      </div>
+      <p class="callout" style="margin-top:22px">
+        Aviso legal: la aplicación no aloja, indexa ni redistribuye contenido audiovisual. El catálogo
+        contiene únicamente enlaces y metadatos aportados por el usuario, que es responsable de usarlos
+        conforme a la ley de su país.
+      </p>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span>F1 Tray Monitor · Licencia MIT</span>
+    <span>Hecho con PowerShell 5.1, WinForms y WebView2.</span>
+    <a href="ROADMAP.md">Roadmap</a>
+    <a href="https://github.com/necu/f1-tray-monitor/blob/main/README.md">README</a>
+    <a href="https://github.com/necu/f1-tray-monitor/blob/main/CHANGELOG.md">Changelog</a>
+  </div>
+</footer>
+
+</body>
+</html>

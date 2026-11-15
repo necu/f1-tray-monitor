@@ -1,0 +1,26 @@
+# Normalizacion de finales de linea por tipo de archivo.
+# `eol=` fija el resultado del checkout y tiene prioridad sobre core.autocrlf,
+# asi que el arbol de trabajo es identico en cualquier equipo (y en CI), y el
+# ZIP reproducible da el mismo SHA256 siempre.
+* text=auto eol=lf
+
+*.ps1   text eol=crlf
+*.psm1  text eol=crlf
+*.psd1  text eol=lf
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+*.vbs   text eol=crlf
+*.html  text eol=lf
+*.css   text eol=lf
+*.js    text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+*.png   binary
+*.ico   binary
+*.jpg   binary
+*.gif   binary
+*.dll   binary
