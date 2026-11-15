@@ -113,16 +113,25 @@ escritorio. No hay instalador, no hay telemetría y no hay servidor propio.
   alta real en copia (v5) y rechazo de duplicados (exit 1); `tools/stream-part.ps1` verificado
   con `Range` cerrado (206 exacto), rango abierto desde 0 con crecimiento del archivo
   (151.552 B → 307.200 B, hash idéntico) y `/health`.
-- Git 2.56.0 y GitHub CLI 2.104.0 instalados; repo local inicializado y commit preparado.
-  Falta la autenticación del usuario (`gh auth login`) para crear el repo, Pages y el tag.
+- Git 2.56.0 y GitHub CLI 2.104.0 instalados; cuenta `necu` autenticada por `gh auth login`
+  (token en el Administrador de credenciales, scope `repo` + `workflow`).
+- **Publicado el 15/11/2026**: repo público <https://github.com/necu/f1-tray-monitor>, Pages en
+  <https://necu.github.io/f1-tray-monitor/> (main /docs, HTTPS forzado), tag `v1.3.0` y release
+  con el ZIP y `SHA256SUMS` adjuntos por `release.yml`. Ficha con descripción, web y 10 topics;
+  issue #2 «Roadmap abierto» abierto.
+- **Reproducibilidad comprobada de extremo a extremo**: `.gitattributes` fija `eol=` en todos
+  los tipos, así que el árbol es idéntico en cualquier equipo. El ZIP local, el de un clon
+  limpio y el que construye GitHub Actions dan el mismo SHA256
+  (`9D7FA288…D1B8BF`, 612.856 B, 54 entradas). Antes, los archivos con `text=auto` salían en
+  LF en local y CRLF en CI, y el hash cambiaba.
 
 ### Pendiente (siguiente ciclo)
 
-- **Publicación con credenciales del usuario**: `gh auth login`, luego `tools/publicar.ps1`
-  (commit, repo público, topics, Pages y tag `v1.3.0`). Después, subir
-  `docs/social-preview.png` en Settings → Social preview y comprobar la release.
+- **Pasos manuales en la web de GitHub**: Settings → Social preview → subir
+  `docs/social-preview.png` (no hay API) y revisar la ficha del repo.
 - **Ejecutar la difusión** de `docs/PROMOCION.md`: Show HN, r/formula1, r/PowerShell, X,
-  LinkedIn, Mastodon, Bluesky y foros, escalonado y respondiendo comentarios 48 h.
+  LinkedIn, Mastodon, Bluesky y foros, escalonado y respondiendo comentarios 48 h. Requiere las
+  cuentas del usuario; el agente solo redacta y planifica.
 - Dirección 2.0 acordada en `docs/ROADMAP.md`: **mpv embebido** (`--wid` + IPC) para
   compatibilidad total, **aria2c** como motor de descargas, reproducción sobre archivo en
   crecimiento y descargas limitadas a contenido legal o aportado por el usuario. Nada de
